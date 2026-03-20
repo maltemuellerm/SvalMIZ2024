@@ -14,7 +14,6 @@ matplotlib.use("Agg")
 
 import pathlib, shutil
 import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import cmocean
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +23,7 @@ from matplotlib.colors import TwoSlopeNorm
 # ── paths ────────────────────────────────────────────────────────────────────
 HERE  = pathlib.Path(__file__).parent
 ROOT  = HERE.parents[1]
-PAPER = ROOT.parent / "papers" / "SvalMIZ24-MIP" / "figures"
+PAPER = ROOT.parents[1] / "papers" / "SvalMIZ24-MIP" / "figures"
 MPATH = pathlib.Path("/lustre/storeB/project/nwp/SALIENSEAS/SvalMIZ2024/models/")
 
 # ── projection ───────────────────────────────────────────────────────────────
@@ -57,7 +56,7 @@ MODELS = [
 ]
 MODEL_LABELS = [
     "DWD-ICON", "ECMWF-IFS", "MF-ARPEGE", "ECCC-HRDPSN",
-    "ECCC-HRDPSN\n(coupled)", "MET-AROME", "MF-AROME", "ECMWF-AIFS",
+    "ECCC-CAPS", "MET-AROME", "MF-AROME", "ECMWF-AIFS",
 ]
 
 # ── colour config ─────────────────────────────────────────────────────────────
@@ -131,8 +130,8 @@ def load_field(model_dir, varname, coord_style, metric, max_pts=400):
 # ── style ─────────────────────────────────────────────────────────────────────
 plt.rcParams.update({
     "font.family":    "sans-serif",
-    "font.size":      9,
-    "axes.titlesize": 11,
+    "font.size":      12,
+    "axes.titlesize": 17,
     "savefig.dpi":    300,
 })
 
@@ -199,17 +198,17 @@ def make_panel_figure(metric, cmap, vmin, vmax, norm, cbar_label, outname):
         else:
             print("no data")
             ax.text(0.5, 0.5, "no data", transform=ax.transAxes,
-                    ha="center", va="center", fontsize=8, color="0.5")
+                    ha="center", va="center", fontsize=11, color="0.5")
 
         # coastlines on top — no land masking, data shown everywhere
         ax.coastlines(resolution="50m", linewidth=0.65, color="0.1", zorder=5)
 
-        ax.set_title(label, fontsize=11, pad=3, linespacing=1.2)
+        ax.set_title(label, fontsize=17, pad=5, linespacing=1.1)
 
         # panel letter
         ax.text(0.02, 0.97, f"({chr(97+idx)})", transform=ax.transAxes,
-                ha="left", va="top", fontsize=8, fontweight="bold",
-                color="k", bbox=dict(fc="white", ec="none", alpha=0.6, pad=1))
+                ha="left", va="top", fontsize=18, fontweight="black",
+                color="k", bbox=dict(fc="white", ec="none", alpha=0.75, pad=1.5))
 
     # shared horizontal colourbar at the bottom
     if last_mesh is not None:
@@ -222,15 +221,10 @@ def make_panel_figure(metric, cmap, vmin, vmax, norm, cbar_label, outname):
             0.015,
         ])
         cb = fig.colorbar(last_mesh, cax=cax, orientation="horizontal", extend="both")
-        cb.set_label(cbar_label, fontsize=9)
-        cb.ax.tick_params(labelsize=8)
+        cb.set_label(cbar_label, fontsize=15)
+        cb.ax.tick_params(labelsize=14)
         if norm is not None:
             cb.set_ticks(np.linspace(vmin, vmax, 7))
-
-    title = ("2-m air temperature RMSE — April 2024"
-             if metric == "rmse" else
-             "2-m air temperature Bias — April 2024")
-    fig.suptitle(title, fontsize=11, y=0.985)
 
     outfile = HERE / outname
     fig.savefig(outfile, dpi=300, bbox_inches="tight")

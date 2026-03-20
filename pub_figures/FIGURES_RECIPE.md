@@ -48,6 +48,8 @@ pub_figures/
 | `fig01_variogram_temp` | `fig:variogram_april` | `Figure_Variogram_Temp.png` | 4.1 Surface and air temperature | done |
 | `fig02_bias_rmse_temp` | `fig:bias_rmse_cao_wai` | `BiasRMSE_Temp2024.png` | 4.1 Surface and air temperature | done |
 | `fig_t2m_analysis_maps` | `fig:t2m_analysis_maps` | `T2M_RMSE_BIAS_AnalysisMap.png` | 4.1 – spatial RMSE/Bias maps | done |
+| `fig_sit_analysis_maps` | `fig:sit_rmse_map`, `fig:sit_mean_map` | `SIT_RMSE_AnalysisMap.png`, `SIT_Mean_AnalysisMap.png` | 4.2 Sea-ice characteristics | done |
+| `fig_sit_mean_catA_catB` | `fig:sit_mean_catA`, `fig:sit_mean_catB`, `fig:sit_mean_awi` | `SIT_Mean_CatA_AnalysisMap.png`, `SIT_Mean_CatB_AnalysisMap.png`, `SIT_Mean_CryoSMOS_AWI.png` | 4.2 Sea-ice characteristics | done |
 | `fig03_sic_bias_temp`  | — | `BiasTempConditionalSIC.png` | 4.1 – SIC-conditional bias | todo |
 | `fig04_sic_verification` | — | `SIC_Verification.png` | 4.2 Sea-ice characteristics | todo |
 | `fig05_icedrift`       | — | `IceDrift_Verification.png` | 4.2 Sea-ice drift | todo |
