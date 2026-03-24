@@ -1,4 +1,4 @@
-"""
+tp://localhost:8888/notes/S"""
 Figure: 2-m air temperature RMSE and BIAS against model analysis
 Produces TWO separate files:
   T2M_RMSE_AnalysisMap.png  (4 rows × 2 columns)
@@ -7,7 +7,7 @@ Projection: Lambert Conformal Conic — same as MET AROME Arctic
             (domain appears as a proper rectangle with no distortion)
 Values plotted on land AND ocean; only coastlines drawn for reference.
 Models in manuscript Table 1 order (Category A, row-major 4×2).
-"""
+""" 
 
 import matplotlib
 matplotlib.use("Agg")

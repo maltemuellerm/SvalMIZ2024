@@ -51,7 +51,6 @@ plt.rcParams.update({
 # tuple: (model_dir, variable_name_or_None, coord_style, panel_label)
 CAT_A = [
     ("ECMWF-IFS", "var98", "lonlat", "ECMWF-IFS"),
-    ("ECMWF-AIFS", None, "lonlat", "ECMWF-AIFS"),
     ("DWD-ICON", "icetk", "lonlat", "DWD-ICON"),
     ("MF-ARPEGE", "H_ICE", "arpege", "MF-ARPEGE"),
     ("MF-AROME", "H_ICE", "arome", "MF-AROME"),
@@ -60,6 +59,8 @@ CAT_A = [
     # ECCC-HRDPSN  -> ECCC-RIOPS, ECCC-CAPS -> ECCC-RIOPScoupled.
     ("ECCC-RIOPS", "iicevol", "lonlat2", "ECCC-HRDPSN"),
     ("ECCC-RIOPScoupled", "iicevol", "lonlat2", "ECCC-CAPS"),
+    # Last panel: CryoSat-2/SMOS reference observation
+    ("__CRYOSMOS__", None, None, "CryoSat-2/SMOS"),
 ]
 
 # Category B (notebook-based ordering)
@@ -196,25 +197,51 @@ def make_category_figure(category, nrows, ncols, outname):
         draw_common_map_decor(ax)
 
         print(f"  {model_dir:25s}", end="  ")
-        loaded = load_mean_field(model_dir, varname, cstyle)
 
-        if loaded is None:
-            print("no data")
-            ax.text(0.5, 0.5, "no data", transform=ax.transAxes,
-                    ha="center", va="center", fontsize=11, color="0.5")
+        # Special case: CryoSat-2/SMOS reference panel
+        if model_dir == "__CRYOSMOS__":
+            thickfile = OPATH / "CryoSMOS_icethickness_April2024.nc"
+            if thickfile.exists():
+                ds = xr.open_dataset(thickfile)
+                data = np.squeeze(ds["analysis_sea_ice_thickness"].values).astype(float)
+                data = np.where((np.abs(data) > 1e10) | (data < 0), np.nan, data)
+                lon = ds["lon"].values
+                lat = ds["lat"].values
+                ds.close()
+                print(f"shape={data.shape}  [{np.nanmin(data):.3f}, {np.nanmax(data):.3f}]")
+                last_mesh = ax.pcolormesh(
+                    lon, lat, data,
+                    transform=DATA_PROJ,
+                    cmap=CMAP_MEAN,
+                    vmin=VMIN_MEAN,
+                    vmax=VMAX_MEAN,
+                    shading="auto",
+                    zorder=2,
+                    rasterized=True,
+                )
+            else:
+                print("CryoSMOS file missing")
+                ax.text(0.5, 0.5, "no data", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=11, color="0.5")
         else:
-            lon, lat, data = loaded
-            print(f"shape={data.shape}  [{np.nanmin(data):.3f}, {np.nanmax(data):.3f}]")
-            last_mesh = ax.pcolormesh(
-                lon, lat, data,
-                transform=DATA_PROJ,
-                cmap=CMAP_MEAN,
-                vmin=VMIN_MEAN,
-                vmax=VMAX_MEAN,
-                shading="auto",
-                zorder=2,
-                rasterized=True,
-            )
+            loaded = load_mean_field(model_dir, varname, cstyle)
+            if loaded is None:
+                print("no data")
+                ax.text(0.5, 0.5, "no data", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=11, color="0.5")
+            else:
+                lon, lat, data = loaded
+                print(f"shape={data.shape}  [{np.nanmin(data):.3f}, {np.nanmax(data):.3f}]")
+                last_mesh = ax.pcolormesh(
+                    lon, lat, data,
+                    transform=DATA_PROJ,
+                    cmap=CMAP_MEAN,
+                    vmin=VMIN_MEAN,
+                    vmax=VMAX_MEAN,
+                    shading="auto",
+                    zorder=2,
+                    rasterized=True,
+                )
 
         ax.coastlines(resolution="50m", linewidth=0.65, color="0.1", zorder=5)
         ax.set_title(label, fontsize=17, pad=5, linespacing=1.1)
