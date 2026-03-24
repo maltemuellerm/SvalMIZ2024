@@ -1,7 +1,7 @@
 """
-Figure: 2-m air temperature vs model (leadtime 36-48 hours) — SIC positive
-Manuscript section: 4.1 – Temperature along buoy trajectories
-Leads: 36-48 hours | Condition: SIC_diff > 0.1
+Figure: Temperature bias (model − obs) vs SIC difference
+Manuscript section: 4.1 – Understanding SIC impact on temperature errors
+Leads: variable (default 36-48 hours) | Shows scatter (colored by T_obs) and hexbin density
 """
 
 import matplotlib
@@ -43,12 +43,12 @@ ifiledrift    = "/home/maltem/work/python/SvalMIZ2024data/colocatedFiles/final_2
 # ── figure style ───────────────────────────────────────────────────────────
 plt.rcParams.update({
     "font.family":      "sans-serif",
-    "font.size":        10,
-    "axes.labelsize":   11,
-    "axes.titlesize":   11,
-    "legend.fontsize":  9,
-    "xtick.labelsize":  9,
-    "ytick.labelsize":  9,
+    "font.size":        9,
+    "axes.labelsize":   10,
+    "axes.titlesize":   10,
+    "legend.fontsize":  8,
+    "xtick.labelsize":  8,
+    "ytick.labelsize":  8,
     "figure.dpi":       150,
     "savefig.dpi":      300,
     "savefig.bbox":     "tight",
@@ -70,7 +70,7 @@ ldint = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 
 time_mask = (OMBtemp.time_ds >= start_date) & (OMBtemp.time_ds <= end_date)
 
-# Plot order consistent with previous manuscript figures, with requested exclusions.
+# Plot order consistent with previous manuscript figures
 PLOT_MODEL_ORDER = [
     "DWD-ICON",
     "ECMWF-IFS",
@@ -83,9 +83,6 @@ PLOT_MODEL_ORDER = [
 
 TEMP_MODEL_INDEX = {str(m): i for i, m in enumerate(OMBtemp.model.values)}
 plot_models = [m for m in PLOT_MODEL_ORDER if m in TEMP_MODEL_INDEX]
-
-if not plot_models:
-    raise RuntimeError("No requested plot models were found in dataset_temp.nc")
 
 DRIFT_MODEL_FOR_TEMP_MODEL = {
     "ECCC-HRDPSN": "ECCC-RIOPS",
@@ -124,32 +121,33 @@ drift_lt_idx = map_temp_lt_to_drift_lt(temp_lt_label, drift_lt_labels)
 print(f"Creating figure for leadtime: {OMBtemp.lt_int[ldint].values}")
 
 n_models = len(plot_models)
-ncols = 2
-nrows = ceil(n_models / ncols)
-fig, axs = plt.subplots(nrows, ncols, figsize=(10, 4.2 * nrows), sharex=True, sharey=True)
-axs_flat = np.atleast_1d(axs).ravel()
-plt.subplots_adjust(wspace=0.15, hspace=0.25)
+ncols = 2  # Two columns per model: scatter + hexbin
+nrows = n_models
+fig, axs = plt.subplots(nrows, ncols, figsize=(12, 3.5 * nrows), sharex=False, sharey=False)
+if nrows == 1:
+    axs = axs.reshape(1, -1)
+plt.subplots_adjust(wspace=0.3, hspace=0.35)
 
-# Storage arrays
-all_temp_1m = []
-all_temp_models = {}
-all_SIC_diff = {}
+# Collect all data for global statistics
+all_temp_obs = []
+all_temp_model = []
+all_SIC_diff = []
 
 for ipanel, model_name in enumerate(plot_models):
-    ax = axs_flat[ipanel]
     temp_model_idx = TEMP_MODEL_INDEX[model_name]
-
-    all_temp_models[model_name] = []
-    all_SIC_diff[model_name] = []
+    
+    temp_obs_list = []
+    temp_model_list = []
+    SIC_diff_list = []
 
     # Loop through all buoys
     for buoy in range(len(OMBtemp.tr_nr)):
-
+        
         # Radiation flag (interpolated)
         flag3 = OMBtemp.ssdr[5, 0, buoy, :].values
         arr_series = pd.Series(flag3)
         flag3 = arr_series.interpolate(method='linear').to_numpy()
-
+        
         # Quality flags: temperature + radiation
         flag_condition = (
             (OMBtemp.temp_flag_1m[buoy, :] == 0) &
@@ -157,11 +155,11 @@ for ipanel, model_name in enumerate(plot_models):
             (flag3 < rad_threshold) &
             time_mask
         )
-
+        
         # Extract observations and model forecast
         temp_obs = OMBtemp.temp_1m_calibrated[buoy, flag_condition.values] - 273.15
         temp_model = OMBtemp.T2M[temp_model_idx, ldint, buoy, flag_condition.values] - 273.15
-
+        
         # SIC difference (model − observed)
         if model_name in DRIFT_MODEL_FOR_TEMP_MODEL:
             drift_model_name = DRIFT_MODEL_FOR_TEMP_MODEL[model_name]
@@ -174,88 +172,92 @@ for ipanel, model_name in enumerate(plot_models):
             SIC_model = OMBtemp.SIC[temp_model_idx, ldint, buoy, flag_condition.values]
             SIC_observed = OMBtemp.AMSR2_SIC[buoy, flag_condition.values]
         SIC_diff = SIC_model - SIC_observed
-
-        all_temp_models[model_name].append(temp_model.values)
-        all_SIC_diff[model_name].append(SIC_diff.values)
-
-        if ipanel == 0:  # Store observations only once
-            all_temp_1m.append(temp_obs.values)
-
+        
+        temp_obs_list.append(temp_obs.values)
+        temp_model_list.append(temp_model.values)
+        SIC_diff_list.append(SIC_diff.values)
+    
     # Concatenate all buoy data
-    temp_obs_flat = np.concatenate(all_temp_1m) if all_temp_1m else np.array([])
-    temp_model_flat = np.concatenate(all_temp_models[model_name]) if all_temp_models[model_name] else np.array([])
-    SIC_diff_flat = np.concatenate(all_SIC_diff[model_name]) if all_SIC_diff[model_name] else np.array([])
-
+    temp_obs_flat = np.concatenate(temp_obs_list) if temp_obs_list else np.array([])
+    temp_model_flat = np.concatenate(temp_model_list) if temp_model_list else np.array([])
+    SIC_diff_flat = np.concatenate(SIC_diff_list) if SIC_diff_list else np.array([])
+    
     # Remove NaN/Inf values
     valid_mask = np.isfinite(temp_obs_flat) & np.isfinite(temp_model_flat) & np.isfinite(SIC_diff_flat)
     temp_obs_flat = temp_obs_flat[valid_mask]
     temp_model_flat = temp_model_flat[valid_mask]
     SIC_diff_flat = SIC_diff_flat[valid_mask]
+    
+    all_temp_obs.extend(temp_obs_flat)
+    all_temp_model.extend(temp_model_flat)
+    all_SIC_diff.extend(SIC_diff_flat)
+    
+    if len(temp_obs_flat) == 0:
+        continue
+    
+    # Calculate bias
+    bias = temp_model_flat - temp_obs_flat
+    
+    # ── LEFT PANEL: Scatter plot (bias vs SIC_diff, colored by T_obs) ──
+    ax_scatter = axs[ipanel, 0]
+    sc = ax_scatter.scatter(
+        SIC_diff_flat,
+        bias,
+        c=temp_obs_flat,
+        cmap='RdYlBu_r',
+        s=30,
+        alpha=0.6,
+        edgecolors='none',
+        vmin=-15,
+        vmax=5
+    )
+    ax_scatter.axhline(0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+    ax_scatter.axvline(0, color='gray', linestyle=':', linewidth=0.8, alpha=0.5)
+    ax_scatter.set_xlabel('SIC difference (model − obs)', fontsize=10)
+    ax_scatter.set_ylabel('Temperature bias (model − obs) [°C]', fontsize=10)
+    ax_scatter.set_title(f'{model_name} — Scatter', fontsize=10, fontweight='bold')
+    ax_scatter.grid(True, alpha=0.2)
+    
+    # Calculate correlation
+    corr = np.corrcoef(SIC_diff_flat, bias)[0, 1]
+    ax_scatter.text(0.05, 0.95, f'r = {corr:.2f}\nn = {len(bias)}',
+                    transform=ax_scatter.transAxes, fontsize=9,
+                    verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', edgecolor='gray', alpha=0.8))
+    
+    # ── RIGHT PANEL: Hexbin (2D density of bias vs SIC_diff) ──
+    ax_hexbin = axs[ipanel, 1]
+    hb = ax_hexbin.hexbin(
+        SIC_diff_flat,
+        bias,
+        gridsize=15,
+        cmap='YlOrRd',
+        mincnt=1,
+        extent=[-1, 1, -10, 5],
+        edgecolors='face',
+        linewidths=0.2
+    )
+    ax_hexbin.axhline(0, color='black', linestyle='--', linewidth=1, alpha=0.5)
+    ax_hexbin.axvline(0, color='gray', linestyle=':', linewidth=0.8, alpha=0.5)
+    ax_hexbin.set_xlabel('SIC difference (model − obs)', fontsize=10)
+    ax_hexbin.set_ylabel('Temperature bias (model − obs) [°C]', fontsize=10)
+    ax_hexbin.set_title(f'{model_name} — Density', fontsize=10, fontweight='bold')
+    
+    # Add colorbar to hexbin
+    cbar_hb = plt.colorbar(hb, ax=ax_hexbin)
+    cbar_hb.set_label('Count', fontsize=8)
 
-    # Check if data exists
-    if len(temp_obs_flat) > 0 and len(temp_model_flat) > 0:
+# ── Global colorbar for scatter plot ──
+cbar_ax = fig.add_axes([0.08, 0.02, 0.3, 0.015])
+cbar_sc = plt.colorbar(sc, cax=cbar_ax, orientation='horizontal')
+cbar_sc.set_label('Observed Temperature [°C]', fontsize=9)
 
-        # Calculate bias and standard deviation
-        bias = np.mean(temp_model_flat - temp_obs_flat)
-        stde = np.std(temp_model_flat - temp_obs_flat)
-
-        # Set equal axis limits
-        temp_min = min(temp_obs_flat.min(), temp_model_flat.min()) - 1
-        temp_max = max(temp_obs_flat.max(), temp_model_flat.max()) + 1
-        ax.set_xlim(temp_min, temp_max)
-        ax.set_ylim(temp_min, temp_max)
-
-        # Scatter plot with color shading based on SIC difference (all data)
-        ax.scatter(
-            temp_obs_flat,
-            temp_model_flat,
-            c=SIC_diff_flat,
-            cmap='coolwarm',
-            s=40,
-            vmin=-1,
-            vmax=1,
-            alpha=0.7,
-            edgecolors='none'
-        )
-
-        # 1:1 reference line
-        ax.plot([temp_min, temp_max], [temp_min, temp_max], 'k--', linewidth=0.8, alpha=0.6)
-
-        # Model title
-        ax.set_title(model_name, fontsize=11, fontweight='bold')
-
-        # Statistics text box
-        textstr = f'Bias: {bias:+.2f}°C\nStdDev: {stde:.2f}°C\nn = {len(temp_model_flat)}'
-        props = dict(boxstyle='round,pad=0.4', facecolor='white', edgecolor='black', linewidth=1)
-        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=9,
-                verticalalignment='top', horizontalalignment='left', bbox=props)
-
-        # Grid
-        ax.grid(True, alpha=0.3, linewidth=0.5)
-
-    else:
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.text(0.5, 0.5, "No valid data", fontsize=10, ha='center', va='center',
-                transform=ax.transAxes, style='italic', color='gray')
-
-# Hide any unused panels if model count is not a multiple of ncols
-for ax in axs_flat[n_models:]:
-    ax.axis("off")
-
-# Global labels
-fig.supxlabel("Observed Temperature (°C)", fontsize=12, fontweight='bold')
-fig.supylabel("Model Temperature (°C)", fontsize=12, fontweight='bold')
-fig.suptitle(f"Leadtime {OMBtemp.lt_int[ldint].values} | All data, colored by SIC difference", fontsize=13, y=0.98)
-
-# Colorbar for SIC difference
-cbar_ax = fig.add_axes([0.92, 0.15, 0.015, 0.7])
-cbar = plt.colorbar(plt.cm.ScalarMappable(cmap='coolwarm', norm=plt.Normalize(vmin=-1, vmax=1)), cax=cbar_ax)
-cbar.set_label("SIC Difference (model − obs)", fontsize=10, fontweight='bold')
+# ── Title ──
+lead_label = temp_lt_label.strip("]").replace("]", "").replace("_", "–")
+fig.suptitle(f'Temperature Bias vs SIC Difference (Leadtime {lead_label})', fontsize=13, y=0.995, fontweight='bold')
 
 # ── save ────────────────────────────────────────────────────────────────────
 lead_label_safe = temp_lt_label.strip("]").replace("]", "").replace("_", "to")
-outfile = HERE / f"Fig_TempVsModel_Lead{lead_label_safe}_SICdiff.png"
+outfile = HERE / f"Fig_BiasVsSICdiff_Lead{lead_label_safe}.png"
 print(f"Saving figure to: {outfile}")
 fig.savefig(outfile, dpi=300, bbox_inches='tight')
 
